@@ -1,0 +1,31 @@
+{
+    "tasks": [
+        {
+            "type": "cppbuild",
+            "label": "C/C++: GCC сборка m-f app",
+            "command": "/usr/bin/gcc",
+            "args": [
+                "-Wall",
+                "-g",
+                "-O0",
+                "-o",
+                "${fileDirname}/${fileBasenameNoExtension}",
+                "${fileDirname}/*.c"
+                //"${fileDirname}/sum_array.c",
+                //"${fileDirname}/int_to_str.c",
+                //"${fileDirname}/n_fib.c",
+                //"${fileDirname}/main.c"
+                //"${fileDirname}/${fileBasenameNoExtension}"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": "build",
+            "detail": "компилятор: /usr/bin/gcc"
+        }
+    ],
+    "version": "2.0.0"
+}

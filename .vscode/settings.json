@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "MD5.C": "cpp",
+        "typeinfo": "c"
+    }
+}
