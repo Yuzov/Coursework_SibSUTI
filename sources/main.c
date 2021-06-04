@@ -6,13 +6,13 @@
 #define PTR_SIZE 256
 #define MAX_PATH 260
 #define NAME_SIZE 255
-#define TYPE_SIZE 4
+#define TYPE_SIZE 5
 
 struct file_record {
-    char* name;
+    char name[NAME_SIZE];
     unsigned int parent_id;
-    char* type;
-    // unsigned char hash[16];
+    char type[TYPE_SIZE];
+    unsigned char hash[16];
 };
 typedef struct file_record Record;
 
@@ -20,7 +20,10 @@ int save_info(char* path, char* database)
 {
     struct md5_ctx md5ctx;
     unsigned char md5_result[16];
-    md5_result[0] = '\0';
+    // md5_result[0] = '\0';
+    for (int i = 0; i < 16; i++) {
+        md5_result[i] = '0';
+    }
     unsigned size;
 
     Record record;
@@ -44,16 +47,16 @@ int save_info(char* path, char* database)
         printf("This file or directory doesn't exist\n");
         return -4;
     } else if (file == true) {
-        record.type = "file";
+        scopy("file", record.type);
         printf("IT'S A FILE!\n");
     } else {
         if (*(path + slen(path) - 1) == '/')
             *(path + slen(path) - 1) = '\0';
-        record.type = "dir";
+        scopy("dir", record.type);
         printf("IT'S A DIRECTORY!\n");
     }
     nesting_cnt = stok(path, '/', ptr);
-    record.name = ptr[nesting_cnt];
+    scopy(ptr[nesting_cnt], record.name);
     record.parent_id = nesting_cnt - 1;
     printf("Nesting counter = %d\n", nesting_cnt);
     if (file == true) {
@@ -64,7 +67,7 @@ int save_info(char* path, char* database)
         unsigned char* msg = malloc(sizeof(unsigned char) * size);
         fread(msg, size, 1, input);
         md5_update(&md5ctx, msg, size);
-        md5_final(&md5ctx, md5_result);
+        md5_final(&md5ctx, record.hash);
         // for (int i = 0; i < 16; i++) {
         //    record.hash[i] = md5_result[i];
         // sprintf(record.hash[i], "hhu", md5_result[i]);
@@ -82,18 +85,21 @@ int save_info(char* path, char* database)
     if (pos > 0) {
         //Есть ли уже этот файл в базе?
         fseek(data, 0, SEEK_SET);
-        while (!feof(data)) {
+        FILE* f;
+        f = fopen("database.bin", "r+b");
+        while (!feof(f)) {
             Record buf;
-            FILE* f;
-            f = fopen("database.bin", "r+b");
-            fread(&buf, 1, sizeof(buf), f);
-            if ((buf.name == record.name) && (buf.parent_id == record.parent_id)
-                && (buf.type == record.type)) {
-                printf("This path is already recorded\n");
-                return 0;
-            }
-            if (buf.type == "file") {
-                fseek(f, 16, SEEK_CUR);
+            if (fread(&buf, 1, sizeof(buf), f) > 0) {
+                if ((scmp(buf.name, record.name) == 0)
+                    && (buf.parent_id == record.parent_id)
+                    && (scmp(buf.type, record.type) == 0)) {
+                    printf("This path is already recorded\n");
+                    return 0;
+                }
+                // fseek(f, sizeof(buf), SEEK_CUR);
+                /*if (scmp(buf.type, "file") == 0) {
+                    fseek(f, 16, SEEK_CUR);
+                }*/
             }
         }
         rewind(data);
