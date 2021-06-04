@@ -10,9 +10,9 @@
 
 struct file_record {
     char* name;
-    char* type;
     unsigned int parent_id;
-    unsigned char hash[16];
+    char* type;
+    // unsigned char hash[16];
 };
 typedef struct file_record Record;
 
@@ -20,14 +20,15 @@ int save_info(char* path, char* database)
 {
     struct md5_ctx md5ctx;
     unsigned char md5_result[16];
+    md5_result[0] = '\0';
     unsigned size;
 
     Record record;
+    // record.hash[0] = '\0';
     bool file = true, dir = true;
     char* ptr[PTR_SIZE];
     int nesting_cnt;
     FILE* input;
-    FILE* data;
     if (slen(path) > MAX_PATH) {
         return -1;
     }
@@ -57,14 +58,56 @@ int save_info(char* path, char* database)
     printf("Nesting counter = %d\n", nesting_cnt);
     if (file == true) {
         md5_init(&md5ctx);
-        // size = fread(buf, 1, );
         fseek(input, 0, SEEK_END);
         size = ftell(input);
         fseek(input, 0, SEEK_SET);
-        // unsigned char* msg = malloc(sizeof(unsigned char) * size);
-        // fread(msg, size, 1, input);
-        md5_update(&md5ctx, input, size);
+        unsigned char* msg = malloc(sizeof(unsigned char) * size);
+        fread(msg, size, 1, input);
+        md5_update(&md5ctx, msg, size);
         md5_final(&md5ctx, md5_result);
+        // for (int i = 0; i < 16; i++) {
+        //    record.hash[i] = md5_result[i];
+        // sprintf(record.hash[i], "hhu", md5_result[i]);
+        //}
+    }
+    //Запись в файл
+    FILE* data;
+    if ((data = fopen("database.bin", "r+b")) == NULL) {
+        data = fopen("database.bin", "w+b");
+        rewind(data);
+    }
+    //Проверка на пустоту
+    fseek(data, 0, SEEK_END);
+    unsigned int pos = ftell(data);
+    if (pos > 0) {
+        //Есть ли уже этот файл в базе?
+        fseek(data, 0, SEEK_SET);
+        while (!feof(data)) {
+            Record buf;
+            FILE* f;
+            f = fopen("database.bin", "r+b");
+            fread(&buf, 1, sizeof(buf), f);
+            if ((buf.name == record.name) && (buf.parent_id == record.parent_id)
+                && (buf.type == record.type)) {
+                printf("This path is already recorded\n");
+                return 0;
+            }
+            if (buf.type == "file") {
+                fseek(f, 16, SEEK_CUR);
+            }
+        }
+        rewind(data);
+        fseek(data, 0, SEEK_END);
+        fwrite(&record, 1, sizeof(record), data);
+        if (md5_result[0] != '\0') {
+            // fwrite(md5_result, 1, sizeof(md5_result), data);
+        }
+    } else {
+        rewind(data);
+        fwrite(&record, 1, sizeof(record), data);
+        if (md5_result[0] != '\0') {
+            // fwrite(md5_result, 1, sizeof(md5_result), data);
+        }
     }
     return 0;
 }
