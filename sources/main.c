@@ -106,6 +106,7 @@ int save_info(char* path, char* database)
     record.id = 1;
     record.parent_id = 0;
     fwrite(&record, 1, sizeof(record), data);
+    fclose(input);
 
     if (dir == true) {
         DIR* dir = opendir(path);
@@ -127,6 +128,7 @@ int save_info(char* path, char* database)
                 int path_len = slen(path);
                 scat(path, "/");
                 scat(path, record.name);
+                input = fopen(path, "rb");
 
                 md5_init(&md5ctx);
                 fseek(input, 0, SEEK_END);
@@ -136,6 +138,8 @@ int save_info(char* path, char* database)
                 fread(msg, size, 1, input);
                 md5_update(&md5ctx, msg, size);
                 md5_final(&md5ctx, record.hash);
+
+                fclose(input);
 
                 *(path + path_len) = '\0';
 
@@ -151,6 +155,90 @@ int save_info(char* path, char* database)
 }
 int check_integrity(char* path)
 {
+    struct md5_ctx md5ctx;
+    Record record;
+    record.id = 1;
+    record.parent_id = 0;
+    DIR* dir = opendir(path);
+    char* ptr[PTR_SIZE];
+    if (dir == NULL) {
+        return -5; // Был удален
+    }
+    struct dirent* entity;
+    // entity = readdir(dir);
+
+    int nesting_cnt = stok(path, '/', ptr);
+    char dir_name[NAME_SIZE];
+    scopy(ptr[nesting_cnt - 1] + 1, dir_name);
+    scopy(ptr[nesting_cnt - 1] + 1, record.name);
+    suntok(path, '/', ptr, nesting_cnt);
+
+    scopy("dir", record.type);
+    FILE* data;
+    if ((data = fopen("database.bin", "rb")) == NULL) {
+        return -6; //БД отсутствует
+    }
+    fseek(data, 0, SEEK_END);
+    unsigned int pos = ftell(data);
+    if (pos > 0) {
+        fseek(data, 0, SEEK_SET);
+
+        FILE* f;
+        FILE* input;
+        f = fopen("database.bin", "r+b");
+        Record buf;
+        while (!feof(f)) {
+            if (fread(&buf, 1, sizeof(buf), f) > 0) {
+                if ((scmp(buf.name, record.name) == 0) && (buf.id == record.id)
+                    && (buf.parent_id == record.parent_id)) {
+                    printf("This directory exists in database\n");
+                    break;
+                }
+                // fseek(f, sizeof(buf), SEEK_CUR);
+                /*if (scmp(buf.type, "file") == 0) {
+                    fseek(f, 16, SEEK_CUR);
+                }*/
+            }
+        }
+        while (entity != NULL) {
+            while (entity->d_type != DT_REG) {
+                entity = readdir(dir);
+            }
+            if (entity->d_type == DT_REG) {
+                record.id++;
+                record.parent_id = 1;
+                scopy(entity->d_name, record.name);
+
+                scopy("file", record.type);
+            }
+            // fread(&buf, 1, sizeof(buf), f);
+            if (fread(&buf, 1, sizeof(buf), f) > 0) {
+                int path_len = slen(path);
+                scat(path, "/");
+                scat(path, buf.name);
+                input = fopen(path, "rb");
+
+                md5_init(&md5ctx);
+                fseek(input, 0, SEEK_END);
+                int size = ftell(input);
+                fseek(input, 0, SEEK_SET);
+                unsigned char* msg = malloc(sizeof(unsigned char) * size);
+                fread(msg, size, 1, input);
+                md5_update(&md5ctx, msg, size);
+                md5_final(&md5ctx, record.hash);
+
+                fclose(input);
+
+                *(path + path_len) = '\0';
+                if ((scmp(entity->d_name, record.name) == 0)
+                    && (scmp(entity->d_name, record.name) == 0)
+                    && (buf.id == record.id)
+                    && (buf.parent_id == record.parent_id))
+                    entity = readdir(dir);
+            }
+        }
+    } else
+        return -7; //БД пустая
     return 0;
 }
 
@@ -184,12 +272,12 @@ int main(int argc, char* argv[])
         && (scmp(argv[3], "database") == 0)) {
         // printf("Came\n");
         save_info(argv[4], database);
-        return 0;
+        // return 0;
     }
-    if ((scmp(argv[1], "-c")) && (scmp(argv[2], "-f"))
-        && (scmp(argv[3], "database"))) {
-        check_integrity(argv[4]);
-        return 0;
-    }
+    // if ((scmp(argv[1], "-c")) && (scmp(argv[2], "-f"))
+    //    && (scmp(argv[3], "database"))) {
+    check_integrity(argv[4]);
+    return 0;
+    //}
     return 0;
 }
