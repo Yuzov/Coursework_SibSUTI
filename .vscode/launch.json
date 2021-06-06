@@ -13,7 +13,7 @@
                 "-s",
                 "-f",
                 "database",
-                "/home/yuzov_vladimir/Coursework_SibSUTI/bye.txt"
+                "/home/yuzov_vladimir/Coursework_SibSUTI/"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

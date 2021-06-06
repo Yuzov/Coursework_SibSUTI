@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "MD5.C": "cpp",
-        "typeinfo": "c"
+        "typeinfo": "c",
+        "dirent.h": "c"
     }
 }

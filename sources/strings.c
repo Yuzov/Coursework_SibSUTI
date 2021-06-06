@@ -42,16 +42,15 @@ int stok(char* str, char delim, char** ptr)
 {
     char* suf = str;
     *ptr = str;       // первое поле – начало str
-    int i = 0, j = 0; // j – счетчик полей
+    int i = 0, j = 1; // j – счетчик полей
     while (suf[0] != '\0') {
-        if ((i = srchr(delim, suf)) < 0) {
-            *(ptr + j) = suf;
-            return j;
+        if ((i = srchr(*suf, &delim)) < 0) {
+            suf = suf + i + 2;
         } else {
             suf[i] = '\0';
             *(ptr + j) = suf;
             j++;
-            suf = suf + i + 1;
+            suf = suf + i + 2;
         }
     }
     return j;
@@ -82,7 +81,7 @@ int scspn(char* str, char* sym)
 int suntok(char* str, char delim, char** ptr, int cnt)
 {
     int i;
-    for (i = 1; i < cnt; i++) {
+    for (i = 0; i < cnt; i++) {
         if (**(ptr + i) == '\0') {
             **(ptr + i) = delim;
         }
