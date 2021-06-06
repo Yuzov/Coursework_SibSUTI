@@ -60,6 +60,7 @@ int save_info(char* path, char* database)
         scopy("dir", record.type);
         printf("IT'S A DIRECTORY!\n");
     }
+    // fclose(input);
 
     //Запись в файл
     FILE* data;
@@ -123,6 +124,9 @@ int save_info(char* path, char* database)
                 scopy("file", record.type);
 
                 // MD5
+                int path_len = slen(path);
+                scat(path, "/");
+                scat(path, record.name);
 
                 md5_init(&md5ctx);
                 fseek(input, 0, SEEK_END);
@@ -132,6 +136,8 @@ int save_info(char* path, char* database)
                 fread(msg, size, 1, input);
                 md5_update(&md5ctx, msg, size);
                 md5_final(&md5ctx, record.hash);
+
+                *(path + path_len) = '\0';
 
                 fwrite(&record, 1, sizeof(record), data);
 
@@ -141,75 +147,9 @@ int save_info(char* path, char* database)
         }
         closedir(dir);
     }
-    /*
-        nesting_cnt = stok(path, '/', ptr);
-        scopy(ptr[nesting_cnt], record.name);
-        record.parent_id = nesting_cnt - 1;
-        printf("Nesting counter = %d\n", nesting_cnt);
-        if (file == true) {
-            {
-                md5_init(&md5ctx);
-                fseek(input, 0, SEEK_END);
-                size = ftell(input);
-                fseek(input, 0, SEEK_SET);
-                unsigned char* msg = malloc(sizeof(unsigned char) * size);
-                fread(msg, size, 1, input);
-                md5_update(&md5ctx, msg, size);
-                md5_final(&md5ctx, record.hash);
-                // for (int i = 0; i < 16; i++) {
-                //    record.hash[i] = md5_result[i];
-                // sprintf(record.hash[i], "hhu", md5_result[i]);
-                //}
-            }
-            //Запись в файл
-            FILE* data;
-            if ((data = fopen("database.bin", "r+b")) == NULL) {
-                data = fopen("database.bin", "w+b");
-                rewind(data);
-            }
-            //Проверка на пустоту
-            fseek(data, 0, SEEK_END);
-            record.id = 1;
-            unsigned int pos = ftell(data);
-            if (pos > 0) {
-                //Есть ли уже этот файл в базе?
-                fseek(data, 0, SEEK_SET);
-                FILE* f;
-                f = fopen("database.bin", "r+b");
-                while (!feof(f)) {
-                    Record buf;
-                    if (fread(&buf, 1, sizeof(buf), f) > 0) {
-                        if ((scmp(buf.name, record.name) == 0)
-                            && (buf.parent_id == record.parent_id)
-                            && (scmp(buf.type, record.type) == 0)) {
-                            printf("This path is already recorded\n");
-                            return 0;
-                        }
-                        record.id++;
-                        // fseek(f, sizeof(buf), SEEK_CUR);
-                        /*if (scmp(buf.type, "file") == 0) {
-                            fseek(f, 16, SEEK_CUR);
-                        }
-                    }
-                }
-                rewind(data);
-                fseek(data, 0, SEEK_END);
-                fwrite(&record, 1, sizeof(record), data);
-                if (md5_result[0] != '\0') {
-                    // fwrite(md5_result, 1, sizeof(md5_result), data);
-                }
-            } else {
-                rewind(data);
-                fwrite(&record, 1, sizeof(record), data);
-                if (md5_result[0] != '\0') {
-                    // fwrite(md5_result, 1, sizeof(md5_result), data);
-                }
-            }
-        } else {
-        }*/
     return 0;
 }
-int check_integrity()
+int check_integrity(char* path)
 {
     return 0;
 }
@@ -248,7 +188,7 @@ int main(int argc, char* argv[])
     }
     if ((scmp(argv[1], "-c")) && (scmp(argv[2], "-f"))
         && (scmp(argv[3], "database"))) {
-        check_integrity();
+        check_integrity(argv[4]);
         return 0;
     }
     return 0;
