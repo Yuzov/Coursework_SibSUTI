@@ -201,9 +201,12 @@ int check_integrity(char* path)
             }
         }
         while (entity != NULL) {
-            while (entity->d_type != DT_REG) {
+            while ((entity != NULL) && (entity->d_type != DT_REG)) {
                 entity = readdir(dir);
             }
+            if (entity == NULL)
+                break;
+            bool hash_match = true;
             if (entity->d_type == DT_REG) {
                 record.id++;
                 record.parent_id = 1;
@@ -218,27 +221,56 @@ int check_integrity(char* path)
                 scat(path, buf.name);
                 input = fopen(path, "rb");
 
-                md5_init(&md5ctx);
-                fseek(input, 0, SEEK_END);
-                int size = ftell(input);
-                fseek(input, 0, SEEK_SET);
-                unsigned char* msg = malloc(sizeof(unsigned char) * size);
-                fread(msg, size, 1, input);
-                md5_update(&md5ctx, msg, size);
-                md5_final(&md5ctx, record.hash);
-
-                fclose(input);
-
-                *(path + path_len) = '\0';
-                if ((scmp(entity->d_name, record.name) == 0)
-                    && (scmp(entity->d_name, record.name) == 0)
-                    && (buf.id == record.id)
-                    && (buf.parent_id == record.parent_id))
+                if (input == NULL) {
+                    printf("File %s was deleted\n", buf.name);
                     entity = readdir(dir);
+                    *(path + path_len) = '\0';
+                }
+
+                else if (
+                        (scmp(entity->d_name, record.name) != 0)
+                        || (buf.id != record.id)
+                        || (buf.parent_id != record.parent_id)) {
+                    printf("File %s was deleted\n", record.name);
+                    entity = readdir(dir);
+                    // continue;
+                } else {
+                    md5_init(&md5ctx);
+                    fseek(input, 0, SEEK_END);
+                    int size = ftell(input);
+                    fseek(input, 0, SEEK_SET);
+                    unsigned char* msg = malloc(sizeof(unsigned char) * size);
+                    fread(msg, size, 1, input);
+                    md5_update(&md5ctx, msg, size);
+                    md5_final(&md5ctx, record.hash);
+
+                    fclose(input);
+
+                    *(path + path_len) = '\0';
+
+                    for (int i = 0; i < 16; i++) {
+                        if (buf.hash[i] != record.hash[i]) {
+                            hash_match = false;
+                            break;
+                        }
+                    }
+
+                    if ((scmp(entity->d_name, record.name) == 0)
+                        && (buf.id == record.id)
+                        && (buf.parent_id == record.parent_id)
+                        && (hash_match == true)) {
+                        entity = readdir(dir);
+                    } else {
+                        entity = readdir(dir);
+                        printf("File %s was changed\n", record.name);
+                    }
+                }
             }
         }
+
     } else
-        return -7; //БД пустая
+        return -7;
+    //БД пустая
     return 0;
 }
 
