@@ -95,10 +95,6 @@ int save_info(char* path, char* database)
                     printf("This directory is already recorded\n");
                     return 0;
                 }
-                // fseek(f, sizeof(buf), SEEK_CUR);
-                /*if (scmp(buf.type, "file") == 0) {
-                    fseek(f, 16, SEEK_CUR);
-                }*/
             }
         }
     }
@@ -194,14 +190,10 @@ int check_integrity(char* path)
                     printf("This directory exists in database\n");
                     break;
                 }
-                // fseek(f, sizeof(buf), SEEK_CUR);
-                /*if (scmp(buf.type, "file") == 0) {
-                    fseek(f, 16, SEEK_CUR);
-                }*/
             }
         }
         while (entity != NULL) {
-            while ((entity != NULL) && (entity->d_type != DT_REG)) {
+            while (entity->d_type != DT_REG) {
                 entity = readdir(dir);
             }
             if (entity == NULL)
@@ -214,7 +206,6 @@ int check_integrity(char* path)
 
                 scopy("file", record.type);
             }
-            // fread(&buf, 1, sizeof(buf), f);
             if (fread(&buf, 1, sizeof(buf), f) > 0) {
                 int path_len = slen(path);
                 scat(path, "/");
@@ -225,15 +216,12 @@ int check_integrity(char* path)
                     printf("File %s was deleted\n", buf.name);
                     entity = readdir(dir);
                     *(path + path_len) = '\0';
-                }
-
-                else if (
+                } else if (
                         (scmp(entity->d_name, record.name) != 0)
                         || (buf.id != record.id)
                         || (buf.parent_id != record.parent_id)) {
                     printf("File %s was deleted\n", record.name);
                     entity = readdir(dir);
-                    // continue;
                 } else {
                     md5_init(&md5ctx);
                     fseek(input, 0, SEEK_END);
@@ -254,7 +242,6 @@ int check_integrity(char* path)
                             break;
                         }
                     }
-
                     if ((scmp(entity->d_name, record.name) == 0)
                         && (buf.id == record.id)
                         && (buf.parent_id == record.parent_id)
