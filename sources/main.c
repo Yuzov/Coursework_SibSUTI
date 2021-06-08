@@ -18,14 +18,14 @@ struct file_record {
 };
 typedef struct file_record Record;
 
-int save_info(char* path, char* database)
+int save_info(char* path, bool is_nested, unsigned int* id)
 {
     struct md5_ctx md5ctx;
-    unsigned char md5_result[16];
+    // unsigned char md5_result[16];
     // md5_result[0] = '\0';
-    for (int i = 0; i < 16; i++) {
-        md5_result[i] = '0';
-    }
+    // for (int i = 0; i < 16; i++) {
+    //    md5_result[i] = '0';
+    //}
     unsigned size;
 
     Record record;
@@ -80,7 +80,7 @@ int save_info(char* path, char* database)
 
     //Проверка, что данная директория уже добавлена
     fseek(data, 0, SEEK_END);
-    record.id = 1;
+    record.id = *id;
     unsigned int pos = ftell(data);
     if (pos > 0) {
         fseek(data, 0, SEEK_SET);
@@ -99,7 +99,7 @@ int save_info(char* path, char* database)
         }
     }
     //Запись данной директории
-    record.id = 1;
+    record.id = *id;
     record.parent_id = 0;
     fseek(data, 0, SEEK_END);
     fwrite(&record, 1, sizeof(record), data);
@@ -112,8 +112,23 @@ int save_info(char* path, char* database)
         }
         struct dirent* entity;
         entity = readdir(dir);
+        int path_len;
+
         while (entity != NULL) {
             // unsigned int id = 1;
+
+            if ((entity->d_type == DT_DIR) && (scmp(entity->d_name, ".") != 0)
+                && (scmp(entity->d_name, "..") != 0)) {
+                // scat(path, dirname);
+                path_len = slen(path);
+                scat(path, "/");
+                scat(path, entity->d_name);
+                // fclose(input);
+                *id = *id + 1;
+                save_info(path, is_nested, id);
+                *(path + path_len) = '\0';
+            }
+
             if (entity->d_type == DT_REG) {
                 record.id++;
                 record.parent_id = 1;
@@ -122,27 +137,29 @@ int save_info(char* path, char* database)
                 scopy("file", record.type);
 
                 // MD5
-                int path_len = slen(path);
+                path_len = slen(path);
                 scat(path, "/");
                 scat(path, record.name);
                 input = fopen(path, "rb");
+                if (input != NULL) {
+                    md5_init(&md5ctx);
+                    fseek(input, 0, SEEK_END);
+                    size = ftell(input);
+                    fseek(input, 0, SEEK_SET);
+                    unsigned char* msg = malloc(sizeof(unsigned char) * size);
+                    fread(msg, size, 1, input);
+                    md5_update(&md5ctx, msg, size);
+                    md5_final(&md5ctx, record.hash);
 
-                md5_init(&md5ctx);
-                fseek(input, 0, SEEK_END);
-                size = ftell(input);
-                fseek(input, 0, SEEK_SET);
-                unsigned char* msg = malloc(sizeof(unsigned char) * size);
-                fread(msg, size, 1, input);
-                md5_update(&md5ctx, msg, size);
-                md5_final(&md5ctx, record.hash);
+                    // fclose(input);
 
-                // fclose(input);
+                    *(path + path_len) = '\0';
 
-                *(path + path_len) = '\0';
+                    fwrite(&record, 1, sizeof(record), data);
 
-                fwrite(&record, 1, sizeof(record), data);
-
-                printf("%hhd %s\n", entity->d_type, entity->d_name);
+                    printf("%hhd %s\n", entity->d_type, entity->d_name);
+                    *id = *id + 1;
+                }
             }
             entity = readdir(dir);
         }
@@ -153,6 +170,7 @@ int save_info(char* path, char* database)
 int check_integrity(char* path)
 {
     struct md5_ctx md5ctx;
+    int path_len;
     Record record;
     record.id = 1;
     record.parent_id = 0;
@@ -163,7 +181,8 @@ int check_integrity(char* path)
     DIR* dir = opendir(path);
     char* ptr[PTR_SIZE];
     if (dir == NULL) {
-        return -5; // Был удален
+        printf("File was DELETED");
+        return 0; // Был удален
     }
     struct dirent* entity;
     // entity = readdir(dir);
@@ -200,10 +219,22 @@ int check_integrity(char* path)
 
         // fclose(f);
         entity = readdir(dir);
+
         while (entity != NULL) {
-            while ((entity != NULL) && (entity->d_type != DT_REG)) {
-                entity = readdir(dir);
+            if ((entity->d_type == DT_DIR) && (scmp(entity->d_name, ".") != 0)
+                && (scmp(entity->d_name, "..") != 0)) {
+                // scat(path, dirname);
+                path_len = slen(path);
+                scat(path, "/");
+                scat(path, entity->d_name);
+                // fclose(input);
+                check_integrity(path);
+                *(path + path_len) = '\0';
             }
+
+            // while ((entity != NULL) && (entity->d_type != DT_REG)) {
+            //    entity = readdir(dir);
+            //}
             if (entity == NULL)
                 break;
             bool hash_match = true;
@@ -213,9 +244,9 @@ int check_integrity(char* path)
                 scopy(entity->d_name, record.name);
 
                 scopy("file", record.type);
-            }
+            } // А если DIR?
             if (fread(&buf, 1, sizeof(buf), f) > 0) {
-                int path_len = slen(path);
+                path_len = slen(path);
                 scat(path, "/");
                 scat(path, buf.name);
                 input = fopen(path, "rb");
@@ -229,6 +260,7 @@ int check_integrity(char* path)
                         || (buf.id != record.id)
                         || (buf.parent_id != record.parent_id)) {
                     printf("File %s was deleted\n", record.name);
+                    *(path + path_len) = '\0';
                     entity = readdir(dir);
                 } else {
                     md5_init(&md5ctx);
@@ -272,10 +304,13 @@ int check_integrity(char* path)
 int main(int argc, char* argv[])
 {
     char* database = NULL;
+    bool is_nested = false;
+    unsigned int id = 1;
     // printf("%d\n", argc);
-    if (argc != 5) {
+    if ((argc < 5) && (argc > 6)) {
         printf("Usage:\n");
         printf("./integrctrl -s -f database <path to file or directory>\n");
+        printf("./integrctrl -s -r -f database <path to file or directory>\n");
         printf("./integrctrl -c -f database <path to file or directory>\n");
         return -1;
     }
@@ -290,15 +325,25 @@ int main(int argc, char* argv[])
         printf("Expected -s or -c as first argument\n");
         return -2;
     }
-    if (scmp(argv[2], "-f") != 0) {
-        printf("Expected -f as second argument\n");
+    if ((scmp(argv[2], "-f") != 0) && (scmp(argv[2], "-r") != 0)) {
+        printf("Expected -f or -r as second argument\n");
         return -3;
+    }
+    if ((scmp(argv[2], "-r") == 0) && (scmp(argv[3], "-f") != 0)) {
+        printf("Expected -f as third argument\n");
+        return -4;
+    }
+
+    if ((scmp(argv[2], "-r") == 0) && (scmp(argv[3], "-f") == 0)) {
+        is_nested = true;
+        save_info(argv[5], is_nested, &id);
+        return 0;
     }
 
     if ((scmp(argv[1], "-s") == 0) && (scmp(argv[2], "-f") == 0)
         && (scmp(argv[3], "database") == 0)) {
         // printf("Came\n");
-        save_info(argv[4], database);
+        save_info(argv[4], database, &id);
         // return 0;
     }
     if ((scmp(argv[1], "-c") == 0) && (scmp(argv[2], "-f") == 0)

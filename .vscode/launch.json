@@ -11,9 +11,10 @@
             "program": "${workspaceFolder}/sources/main",
             "args": [
                 "-c",
+                //"-r",
                 "-f",
                 "database",
-                "/home/yuzov_vladimir/labs/"
+                "/home/yuzov_vladimir/Coursework_SibSUTI/"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
