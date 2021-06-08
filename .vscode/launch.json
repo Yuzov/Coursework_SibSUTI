@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/sources/main",
             "args": [
-                "-s",
+                "-c",
                 "-f",
                 "database",
                 "/home/yuzov_vladimir/labs/"

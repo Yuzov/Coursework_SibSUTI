@@ -101,8 +101,9 @@ int save_info(char* path, char* database)
     //Запись данной директории
     record.id = 1;
     record.parent_id = 0;
+    fseek(data, 0, SEEK_END);
     fwrite(&record, 1, sizeof(record), data);
-    fclose(input);
+    // fclose(input);
 
     if (dir == true) {
         DIR* dir = opendir(path);
@@ -135,7 +136,7 @@ int save_info(char* path, char* database)
                 md5_update(&md5ctx, msg, size);
                 md5_final(&md5ctx, record.hash);
 
-                fclose(input);
+                // fclose(input);
 
                 *(path + path_len) = '\0';
 
@@ -155,6 +156,10 @@ int check_integrity(char* path)
     Record record;
     record.id = 1;
     record.parent_id = 0;
+
+    if (*(path + slen(path) - 1) == '/')
+        *(path + slen(path) - 1) = '\0';
+
     DIR* dir = opendir(path);
     char* ptr[PTR_SIZE];
     if (dir == NULL) {
@@ -165,8 +170,8 @@ int check_integrity(char* path)
 
     int nesting_cnt = stok(path, '/', ptr);
     char dir_name[NAME_SIZE];
-    scopy(ptr[nesting_cnt - 1] + 1, dir_name);
-    scopy(ptr[nesting_cnt - 1] + 1, record.name);
+    scopy((ptr[nesting_cnt - 1] + 1), dir_name);
+    scopy((ptr[nesting_cnt - 1] + 1), record.name);
     suntok(path, '/', ptr, nesting_cnt);
 
     scopy("dir", record.type);
@@ -192,8 +197,11 @@ int check_integrity(char* path)
                 }
             }
         }
+
+        // fclose(f);
+        entity = readdir(dir);
         while (entity != NULL) {
-            while (entity->d_type != DT_REG) {
+            while ((entity != NULL) && (entity->d_type != DT_REG)) {
                 entity = readdir(dir);
             }
             if (entity == NULL)
@@ -232,7 +240,7 @@ int check_integrity(char* path)
                     md5_update(&md5ctx, msg, size);
                     md5_final(&md5ctx, record.hash);
 
-                    fclose(input);
+                    // fclose(input);
 
                     *(path + path_len) = '\0';
 
@@ -264,19 +272,19 @@ int check_integrity(char* path)
 int main(int argc, char* argv[])
 {
     char* database = NULL;
-    printf("%d\n", argc);
+    // printf("%d\n", argc);
     if (argc != 5) {
         printf("Usage:\n");
         printf("./integrctrl -s -f database <path to file or directory>\n");
         printf("./integrctrl -c -f database <path to file or directory>\n");
         return -1;
     }
-    printf("%s\n %s\n %s\n %s\n %s\n",
+    /*printf("%s\n %s\n %s\n %s\n %s\n",
            argv[0],
            argv[1],
            argv[2],
            argv[3],
-           argv[4]);
+           argv[4]);*/
 
     if (((scmp(argv[1], "-s") != 0) && (scmp(argv[1], "-c") != 0))) {
         printf("Expected -s or -c as first argument\n");
@@ -293,10 +301,10 @@ int main(int argc, char* argv[])
         save_info(argv[4], database);
         // return 0;
     }
-    // if ((scmp(argv[1], "-c")) && (scmp(argv[2], "-f"))
-    //    && (scmp(argv[3], "database"))) {
-    check_integrity(argv[4]);
-    return 0;
-    //}
+    if ((scmp(argv[1], "-c") == 0) && (scmp(argv[2], "-f") == 0)
+        && (scmp(argv[3], "database") == 0)) {
+        check_integrity(argv[4]);
+        return 0;
+    }
     return 0;
 }

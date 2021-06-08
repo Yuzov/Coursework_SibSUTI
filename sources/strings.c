@@ -50,7 +50,7 @@ int stok(char* str, char delim, char** ptr)
             suf[i] = '\0';
             *(ptr + j) = suf;
             j++;
-            suf = suf + i + 2;
+            suf = suf + i + 1;
         }
     }
     return j;
