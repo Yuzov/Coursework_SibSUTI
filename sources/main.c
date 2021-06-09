@@ -18,7 +18,8 @@ struct file_record {
 };
 typedef struct file_record Record;
 
-int save_info(char* path, bool is_nested, unsigned int* id)
+int save_info(
+        char* path, bool is_nested, unsigned int* id, unsigned int parent_id)
 {
     struct md5_ctx md5ctx;
     // unsigned char md5_result[16];
@@ -89,6 +90,7 @@ int save_info(char* path, bool is_nested, unsigned int* id)
         while (!feof(f)) {
             Record buf;
             if (fread(&buf, 1, sizeof(buf), f) > 0) {
+                *id = *id + 1;
                 if ((scmp(buf.name, record.name) == 0)
                     && (buf.parent_id == record.parent_id)
                     && (scmp(buf.type, record.type) == 0)) {
@@ -100,7 +102,7 @@ int save_info(char* path, bool is_nested, unsigned int* id)
     }
     //Запись данной директории
     record.id = *id;
-    record.parent_id = 0;
+    record.parent_id = parent_id;
     fseek(data, 0, SEEK_END);
     fwrite(&record, 1, sizeof(record), data);
     // fclose(input);
@@ -118,20 +120,20 @@ int save_info(char* path, bool is_nested, unsigned int* id)
             // unsigned int id = 1;
 
             if ((entity->d_type == DT_DIR) && (scmp(entity->d_name, ".") != 0)
-                && (scmp(entity->d_name, "..") != 0)) {
+                && (scmp(entity->d_name, "..") != 0) && (is_nested == true)) {
                 // scat(path, dirname);
                 path_len = slen(path);
                 scat(path, "/");
                 scat(path, entity->d_name);
                 // fclose(input);
                 *id = *id + 1;
-                save_info(path, is_nested, id);
+                save_info(path, is_nested, id, parent_id + 1);
                 *(path + path_len) = '\0';
             }
 
             if (entity->d_type == DT_REG) {
                 record.id++;
-                record.parent_id = 1;
+                record.parent_id = parent_id + 1;
                 scopy(entity->d_name, record.name);
 
                 scopy("file", record.type);
@@ -336,14 +338,14 @@ int main(int argc, char* argv[])
 
     if ((scmp(argv[2], "-r") == 0) && (scmp(argv[3], "-f") == 0)) {
         is_nested = true;
-        save_info(argv[5], is_nested, &id);
+        save_info(argv[5], is_nested, &id, 0);
         return 0;
     }
 
     if ((scmp(argv[1], "-s") == 0) && (scmp(argv[2], "-f") == 0)
         && (scmp(argv[3], "database") == 0)) {
         // printf("Came\n");
-        save_info(argv[4], database, &id);
+        save_info(argv[4], database, &id, 0);
         // return 0;
     }
     if ((scmp(argv[1], "-c") == 0) && (scmp(argv[2], "-f") == 0)

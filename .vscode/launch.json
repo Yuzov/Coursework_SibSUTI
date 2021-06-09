@@ -10,8 +10,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/sources/main",
             "args": [
-                "-c",
-                //"-r",
+                "-s",
+                "-r",
                 "-f",
                 "database",
                 "/home/yuzov_vladimir/Coursework_SibSUTI/"
