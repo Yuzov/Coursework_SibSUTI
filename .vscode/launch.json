@@ -10,11 +10,11 @@
             "request": "launch",
             "program": "${workspaceFolder}/sources/main",
             "args": [
-                "-s",
-                "-r",
+                "-c",
+                //"-r",
                 "-f",
                 "database",
-                "/home/yuzov_vladimir/Coursework_SibSUTI/"
+                "/home/yuzov_vladimir/folder/"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

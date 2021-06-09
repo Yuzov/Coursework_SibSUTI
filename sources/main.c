@@ -19,7 +19,12 @@ struct file_record {
 typedef struct file_record Record;
 
 int save_info(
-        char* path, bool is_nested, unsigned int* id, unsigned int parent_id)
+        char* path,
+        bool is_nested,
+        unsigned int* id,
+        unsigned int parent_id,
+        FILE* data,
+        DIR* dir)
 {
     struct md5_ctx md5ctx;
     // unsigned char md5_result[16];
@@ -34,7 +39,7 @@ int save_info(
         record.name[i] = '\0';
     }
     // record.hash[0] = '\0';
-    bool file = true, dir = true;
+    bool file = true, direct = true;
     char* ptr[PTR_SIZE];
     int nesting_cnt;
     FILE* input;
@@ -49,6 +54,7 @@ int save_info(
     if (input == NULL) {
         dir = false;
     }
+    fclose(input);
     if ((file == false) && (dir == false)) {
         printf("This file or directory doesn't exist\n");
         return -4;
@@ -64,11 +70,7 @@ int save_info(
     // fclose(input);
 
     //Запись в файл
-    FILE* data;
-    if ((data = fopen("database.bin", "r+b")) == NULL) {
-        data = fopen("database.bin", "w+b");
-        rewind(data);
-    }
+    //*FILE* data;
 
     //Проверка
 
@@ -103,12 +105,15 @@ int save_info(
     //Запись данной директории
     record.id = *id;
     record.parent_id = parent_id;
+    // for (int i = 0; i < 16; i++) {
+    //    record.hash[i] = '0';
+    //}
     fseek(data, 0, SEEK_END);
     fwrite(&record, 1, sizeof(record), data);
     // fclose(input);
 
-    if (dir == true) {
-        DIR* dir = opendir(path);
+    if (direct == true) {
+        /*DIR*/ dir = opendir(path);
         if (dir == NULL) {
             return -5;
         }
@@ -127,7 +132,7 @@ int save_info(
                 scat(path, entity->d_name);
                 // fclose(input);
                 *id = *id + 1;
-                save_info(path, is_nested, id, parent_id + 1);
+                save_info(path, is_nested, id, parent_id + 1, data, dir);
                 *(path + path_len) = '\0';
             }
 
@@ -169,18 +174,25 @@ int save_info(
     }
     return 0;
 }
-int check_integrity(char* path)
+int check_integrity(
+        char* path,
+        unsigned int parent_id,
+        FILE* data,
+        DIR* dir,
+        FILE* f,
+        FILE* input,
+        Record buf)
 {
     struct md5_ctx md5ctx;
     int path_len;
     Record record;
     record.id = 1;
-    record.parent_id = 0;
+    record.parent_id = parent_id;
 
     if (*(path + slen(path) - 1) == '/')
         *(path + slen(path) - 1) = '\0';
 
-    DIR* dir = opendir(path);
+    /*DIR*/ dir = opendir(path);
     char* ptr[PTR_SIZE];
     if (dir == NULL) {
         printf("File was DELETED");
@@ -196,7 +208,7 @@ int check_integrity(char* path)
     suntok(path, '/', ptr, nesting_cnt);
 
     scopy("dir", record.type);
-    FILE* data;
+    // FILE* data;
     if ((data = fopen("database.bin", "rb")) == NULL) {
         return -6; //БД отсутствует
     }
@@ -205,13 +217,12 @@ int check_integrity(char* path)
     if (pos > 0) {
         fseek(data, 0, SEEK_SET);
 
-        FILE* f;
-        FILE* input;
         f = fopen("database.bin", "r+b");
-        Record buf;
+
         while (!feof(f)) {
             if (fread(&buf, 1, sizeof(buf), f) > 0) {
-                if ((scmp(buf.name, record.name) == 0) && (buf.id == record.id)
+                if ((scmp(buf.name, record.name)
+                     == 0) //&& (buf.id == record.id)
                     && (buf.parent_id == record.parent_id)) {
                     printf("This directory exists in database\n");
                     break;
@@ -230,7 +241,7 @@ int check_integrity(char* path)
                 scat(path, "/");
                 scat(path, entity->d_name);
                 // fclose(input);
-                check_integrity(path);
+                check_integrity(path, parent_id + 1, data, dir, f, input, buf);
                 *(path + path_len) = '\0';
             }
 
@@ -242,10 +253,13 @@ int check_integrity(char* path)
             bool hash_match = true;
             if (entity->d_type == DT_REG) {
                 record.id++;
-                record.parent_id = 1;
+                record.parent_id = parent_id + 1;
                 scopy(entity->d_name, record.name);
 
                 scopy("file", record.type);
+            } else {
+                entity = readdir(dir);
+                continue;
             } // А если DIR?
             if (fread(&buf, 1, sizeof(buf), f) > 0) {
                 path_len = slen(path);
@@ -259,7 +273,7 @@ int check_integrity(char* path)
                     *(path + path_len) = '\0';
                 } else if (
                         (scmp(entity->d_name, record.name) != 0)
-                        || (buf.id != record.id)
+                        //|| (buf.id != record.id)
                         || (buf.parent_id != record.parent_id)) {
                     printf("File %s was deleted\n", record.name);
                     *(path + path_len) = '\0';
@@ -285,7 +299,7 @@ int check_integrity(char* path)
                         }
                     }
                     if ((scmp(entity->d_name, record.name) == 0)
-                        && (buf.id == record.id)
+                        //&& (buf.id == record.id)
                         && (buf.parent_id == record.parent_id)
                         && (hash_match == true)) {
                         entity = readdir(dir);
@@ -305,6 +319,16 @@ int check_integrity(char* path)
 
 int main(int argc, char* argv[])
 {
+    DIR* dir;
+    FILE* f;
+    FILE* input;
+    Record buf;
+
+    FILE* data;
+    if ((data = fopen("database.bin", "r+b")) == NULL) {
+        data = fopen("database.bin", "w+b");
+        rewind(data);
+    }
     char* database = NULL;
     bool is_nested = false;
     unsigned int id = 1;
@@ -338,19 +362,19 @@ int main(int argc, char* argv[])
 
     if ((scmp(argv[2], "-r") == 0) && (scmp(argv[3], "-f") == 0)) {
         is_nested = true;
-        save_info(argv[5], is_nested, &id, 0);
+        save_info(argv[5], is_nested, &id, 0, data, dir);
         return 0;
     }
 
     if ((scmp(argv[1], "-s") == 0) && (scmp(argv[2], "-f") == 0)
         && (scmp(argv[3], "database") == 0)) {
         // printf("Came\n");
-        save_info(argv[4], database, &id, 0);
+        save_info(argv[4], database, &id, 0, data, dir);
         // return 0;
     }
     if ((scmp(argv[1], "-c") == 0) && (scmp(argv[2], "-f") == 0)
         && (scmp(argv[3], "database") == 0)) {
-        check_integrity(argv[4]);
+        check_integrity(argv[4], 0, data, dir, f, input, buf);
         return 0;
     }
     return 0;
