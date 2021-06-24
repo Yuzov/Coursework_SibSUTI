@@ -1,13 +1,11 @@
-123.txt - OK
-Checking files in /home/yuzov_vladimir/folder/231:
-testing3.txt - OK
-
-LOOOOL.txt - OK
-Checking files in /home/yuzov_vladimir/folder/test1:
-A.txt - OK
-
-test1.txt - OK
-Checking files in /home/yuzov_vladimir/folder/test2:
-LOLLL.txt - OK
-testing2.txt - OK
-
+directory folder - exists at path: /home/yuzov_vladimir/folder
+file 123.txt - CHANGED at path: /home/yuzov_vladimir/folder
+directory 231 - exists at path: /home/yuzov_vladimir/folder/231
+file testing3.txt - OK at path: /home/yuzov_vladimir/folder/231
+file LOOOOL.txt - OK at path: /home/yuzov_vladimir/folder
+directory test1 - exists at path: /home/yuzov_vladimir/folder/test1
+file A.txt - OK at path: /home/yuzov_vladimir/folder/test1
+file test1.txt - OK at path: /home/yuzov_vladimir/folder
+directory test2 - exists at path: /home/yuzov_vladimir/folder/test2
+file LOLLL.txt - OK at path: /home/yuzov_vladimir/folder/test2
+file testing2.txt - OK at path: /home/yuzov_vladimir/folder/test2

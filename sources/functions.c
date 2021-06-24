@@ -17,15 +17,13 @@ int check_dir(char* path, FILE* input, Record* record, bool* direct)
         printf("This file or directory doesn't exist\n");
         return -4;
     } else if (file == true) {
-        scopy("file", record->type);
-        printf("IT'S A FILE!\n");
+        return -1;
     } else {
         if (*(path + slen(path) - 1) == '/')
             *(path + slen(path) - 1) = '\0';
         scopy("dir", record->type);
-        printf("IT'S A DIRECTORY!\n");
     }
-    fclose(input);
+    return 0;
 }
 
 void get_hash(FILE* input, Record* record)

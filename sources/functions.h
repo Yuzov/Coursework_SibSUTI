@@ -20,3 +20,4 @@ typedef struct file_record Record;
 
 int check_dir(char* path, FILE* input, Record *record, bool* direct);
 void get_hash(FILE* input, Record* record);
+void concat_name(int* path_len, char* path, char* record_field);
