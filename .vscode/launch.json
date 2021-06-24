@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/sources/main",
             "args": [
-                "-c",
+                "-s",
                 //"-r",
                 "-f",
                 "database",

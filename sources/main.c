@@ -17,14 +17,15 @@ int save_info(
 
     if (check_dir(path, input, &record, &direct) != 0) {
         printf("Enter path to directory\n");
-        return -1;
+        return -7;
     }
     nesting_cnt = stok(path, '/', ptr);
     scopy(ptr[nesting_cnt - 1] + 1, record.name);
     suntok(path, '/', ptr, nesting_cnt);
 
-    if (*is_nested < 1) {
+    if (*is_nested < 3) {
         //Проверка, что данная директория уже добавлена
+        *is_nested = *is_nested + 1;
         fseek(data, 0, SEEK_END);
         unsigned int pos = ftell(data);
         if (pos > 0) {
@@ -32,7 +33,7 @@ int save_info(
             f = fopen("database.bin", "r+b");
             if (f == NULL) {
                 printf("Can not open database.bin\n");
-                return -1;
+                return -8;
             }
             while (!feof(f)) {
                 Record buf;
@@ -42,13 +43,33 @@ int save_info(
                         && (buf.parent_id == record.parent_id)
                         && (scmp(buf.type, record.type) == 0)) {
                         printf("This directory is already recorded\n");
-                        return 0;
+                        printf("Do you want to overwrite? Enter <y> or <n>\n");
+                        char answer;
+                        scanf("%c", &answer);
+                        if (answer == 'n')
+                            return 14;
+                        else if (answer == 'y') {
+                            fseek(data, (*id - 2) * sizeof(buf), SEEK_SET);
+                            scopy("\0", buf.name);
+                            fwrite(&buf, 1, sizeof(buf), data);
+                            save_info(
+                                    path,
+                                    is_nested,
+                                    id,
+                                    parent_id,
+                                    data,
+                                    input,
+                                    dir);
+                            return 0;
+                        } else {
+                            printf("Wrong answer\n");
+                            return -15;
+                        }
                     }
                 }
             }
             fclose(f);
         }
-        *is_nested = *is_nested + 1;
     }
     //Запись данной директории
     record.id = *id;
@@ -59,7 +80,7 @@ int save_info(
         dir = opendir(path);
         if (dir == NULL) {
             printf("Can not open path %s\n", path);
-            return -5;
+            return -9;
         }
         struct dirent* entity;
         entity = readdir(dir);
@@ -97,7 +118,7 @@ int save_info(
                     *id = *id + 1;
                 } else {
                     printf("Can not open %s\n", path);
-                    return -1;
+                    return -10;
                 }
             }
             entity = readdir(dir);
@@ -149,7 +170,7 @@ int check_integrity(
     scopy("dir", record.type);
     if ((data = fopen("database.bin", "rb")) == NULL) {
         printf("Can not open database.bin\n");
-        return -6; //БД отсутствует
+        return -11; //БД отсутствует
     }
     fseek(data, 0, SEEK_END);
     unsigned int pos = ftell(data);
@@ -158,14 +179,12 @@ int check_integrity(
         f = fopen("database.bin", "r+b");
         if (f == NULL) {
             printf("Can not open database.bin\n");
-            return -1;
+            return -12;
         }
         while (!feof(f)) {
             if (fread(&buf, 1, sizeof(buf), f) > 0) {
-                if ((scmp(buf.name, record.name)
-                     == 0) //&& (buf.id == record.id)
+                if ((scmp(buf.name, record.name) == 0)
                     && (buf.parent_id == record.parent_id)) {
-                    // printf("This directory exists in database\n");
                     break;
                 }
             }
@@ -228,7 +247,7 @@ int check_integrity(
         }
     } else {
         printf("Database is empty\n");
-        return -7;
+        return -13;
     }
     if (parent_id == 1) {
         fclose(input);
@@ -249,7 +268,7 @@ int main(int argc, char* argv[])
     output = fopen("report.txt", "w");
     if (output == NULL) {
         printf("Can not open report.txt\n");
-        return -1;
+        return -14;
     }
 
     FILE* data;
@@ -257,7 +276,7 @@ int main(int argc, char* argv[])
         data = fopen("database.bin", "w+b");
         if (data == NULL) {
             printf("Can not open database.bin\n");
-            return -1;
+            return -15;
         }
         rewind(data);
     }
@@ -296,7 +315,7 @@ int main(int argc, char* argv[])
             fclose(data);
             return 0;
         } else
-            return -1;
+            return -5;
     }
 
     if ((scmp(argv[1], "-s") == 0) && (scmp(argv[2], "-f") == 0)
@@ -306,7 +325,7 @@ int main(int argc, char* argv[])
             fclose(data);
             return 0;
         } else
-            return -1;
+            return -6;
     }
     if ((scmp(argv[1], "-c") == 0) && (scmp(argv[2], "-f") == 0)
         && (scmp(argv[3], "database") == 0)) {
