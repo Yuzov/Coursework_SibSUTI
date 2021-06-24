@@ -82,7 +82,7 @@ int save_info(
 
     //Проверка, что данная директория уже добавлена
     fseek(data, 0, SEEK_END);
-    record.id = *id;
+    // record.id = *id;
     unsigned int pos = ftell(data);
     if (pos > 0) {
         fseek(data, 0, SEEK_SET);
@@ -177,10 +177,10 @@ int check_integrity(
         char* path,
         unsigned int parent_id,
         FILE* data,
-        DIR* dir,
         FILE* f,
         FILE* input,
-        Record buf)
+        Record buf,
+        FILE* output)
 {
     struct md5_ctx md5ctx;
     int path_len;
@@ -192,14 +192,14 @@ int check_integrity(
     if (*(path + slen(path) - 1) == '/')
         *(path + slen(path) - 1) = '\0';
 
-    /*DIR*/ dir = opendir(path);
+    DIR* dir = opendir(path);
     char* ptr[PTR_SIZE];
     if (dir == NULL) {
-        printf("File was DELETED");
+        printf("Directory was DELETED");
+        closedir(dir);
         return 0; // Был удален
     }
-    // struct dirent* entity;
-    // entity = readdir(dir);
+    closedir(dir);
 
     int nesting_cnt = stok(path, '/', ptr);
     char dir_name[NAME_SIZE];
@@ -218,10 +218,6 @@ int check_integrity(
         fseek(data, 0, SEEK_SET);
 
         f = fopen("database.bin", "r+b");
-        // if ((scmp(buf.name, record.name) == 0) //&& (buf.id == record.id)
-        //     && (buf.parent_id == record.parent_id)) {
-        //     printf("This directory exists in database\n");
-        // } else {
         while (!feof(f)) {
             if (fread(&buf, 1, sizeof(buf), f) > 0) {
                 if ((scmp(buf.name, record.name)
@@ -232,33 +228,23 @@ int check_integrity(
                 }
             }
         }
-        //}
         parent_id++;
-        // fread(&buf, 1, sizeof(buf), f);
 
-        // fclose(f);
-        // entity = readdir(dir);
-
-        while (((fread(&buf, 1, sizeof(buf), f) > 0)))
-        //&& (buf.parent_id == parent_id))
-        //&& (buf.parent_id != 0)) {
-        {
+        while (fread(&buf, 1, sizeof(buf), f) > 0) {
             if (buf.parent_id == 0)
                 return 0;
             bool hash_match = true;
             if ((scmp(buf.type, "dir") == 0) && (buf.parent_id == parent_id)) {
-                // scat(path, dirname);
-                // parent_id++;
                 path_len = slen(path);
                 scat(path, "/");
                 scat(path, buf.name);
-                // fclose(input);
+                fprintf(output, "Checking files in %s:\n", path);
                 file_counter = check_integrity(
-                        path, parent_id, data, dir, f, input, buf);
+                        path, parent_id, data, f, input, buf, output);
+                fprintf(output, "\n");
                 *(path + path_len) = '\0';
                 for (int i = 0; i < file_counter; i++)
                     fread(&buf, 1, sizeof(buf), f);
-                // parent_id--;
             } else if (
                     (scmp(buf.type, "file") == 0)
                     && (buf.parent_id == parent_id)) {
@@ -268,18 +254,9 @@ int check_integrity(
                 input = fopen(path, "rb");
 
                 if (input == NULL) {
-                    printf("File %s was deleted\n", buf.name);
+                    fprintf(output, "%s - DELETED\n", buf.name);
                     file_counter++;
-                    // entity = readdir(dir);
                     *(path + path_len) = '\0';
-                    // fread(&buf, 1, sizeof(buf), f);
-                    //} else if (
-                    //(scmp(dir_name, record.name) != 0)
-                    //|| (buf.id != record.id)
-                    //|| (buf.parent_id != record.parent_id)) {
-                    // printf("File %s was deleted\n", record.name);
-                    //*(path + path_len) = '\0';
-                    // entity = readdir(dir);
                 } else {
                     md5_init(&md5ctx);
                     fseek(input, 0, SEEK_END);
@@ -300,126 +277,16 @@ int check_integrity(
                             break;
                         }
                     }
-                    if ( //(scmp(dir_name, record.name) == 0)
-                         //&& (buf.id == record.id)
-                         //&& (buf.parent_id == record.parent_id)
-                            (hash_match == true)) {
-                        printf("%s is OK", buf.name);
+                    if (hash_match == true) {
+                        fprintf(output, "%s - OK\n", buf.name);
                         file_counter++;
-                        // fread(&buf, 1, sizeof(buf), f);
-                        // entity = readdir(dir);
                     } else {
-                        // entity = readdir(dir);
-                        printf("File %s was changed\n", buf.name);
+                        fprintf(output, "%s - CHANGED\n", buf.name);
                         file_counter++;
-                        // fread(&buf, 1, sizeof(buf), f);
                     }
                 }
             } else
                 return file_counter;
-
-            /*
-                    while ((fread(&buf, 1, sizeof(buf), f) > 0) && (entity
-               != NULL))
-               {
-                        // if ((entity->d_type == DT_DIR) &&
-               (scmp(entity->d_name,
-               ".") !=
-                        // 0)
-                        //    && (scmp(entity->d_name, "..") != 0)) {
-                        if (scmp(buf.type, "dir") == 0) {
-                            // scat(path, dirname);
-                            path_len = slen(path);
-                            scat(path, "/");
-                            scat(path, entity->d_name);
-                            // fclose(input);
-                            check_integrity(path, parent_id + 1, data, dir,
-               f, input, buf);
-                            *(path + path_len) = '\0';
-                        }
-                        if (scmp(entity->d_name, buf.name) == 0) {
-                            entity = readdir(dir);
-                            while (scmp(entity->d_name, buf.name) != 0)
-                                fread(&buf, 1, sizeof(buf), f);
-                        }
-                        while ((scmp(entity->d_name, buf.name) != 0)
-                               && (entity->d_type != 8))
-                            entity = readdir(dir);
-
-                        // while ((entity != NULL) && (entity->d_type !=
-               DT_REG)) {
-                        //    entity = readdir(dir);
-                        //}
-                        if (entity == NULL)
-                            break;
-                        bool hash_match = true;
-                        if (entity->d_type == DT_REG) {
-                            record.id++;
-                            record.parent_id = parent_id + 1;
-                            scopy(entity->d_name, record.name);
-
-                            scopy("file", record.type);
-                        } else {
-                            path_len = slen(path);
-                            scat(path, "/");
-                            scat(path, entity->d_name);
-                            check_integrity(path, parent_id + 1, data, dir,
-               f, input, buf);
-                            *(path + path_len) = '\0';
-                            fread(&buf, 1, sizeof(buf), f);
-                            // entity = readdir(dir);
-                            continue;
-                        } // А если DIR?
-                          // if (fread(&buf, 1, sizeof(buf), f) > 0) {
-                        path_len = slen(path);
-                        scat(path, "/");
-                        scat(path, buf.name);
-                        input = fopen(path, "rb");
-
-                        if (input == NULL) {
-                            printf("File %s was deleted\n", buf.name);
-                            entity = readdir(dir);
-                            *(path + path_len) = '\0';
-                        } else if (
-                                (scmp(entity->d_name, record.name) != 0)
-                                //|| (buf.id != record.id)
-                                || (buf.parent_id != record.parent_id)) {
-                            printf("File %s was deleted\n", record.name);
-                            *(path + path_len) = '\0';
-                            entity = readdir(dir);
-                        } else {
-                            md5_init(&md5ctx);
-                            fseek(input, 0, SEEK_END);
-                            int size = ftell(input);
-                            fseek(input, 0, SEEK_SET);
-                            unsigned char* msg = malloc(sizeof(unsigned
-               char) * size); fread(msg, size, 1, input);
-               md5_update(&md5ctx, msg, size); md5_final(&md5ctx,
-               record.hash);
-
-                            // fclose(input);
-
-                            *(path + path_len) = '\0';
-
-                            for (int i = 0; i < 16; i++) {
-                                if (buf.hash[i] != record.hash[i]) {
-                                    hash_match = false;
-                                    break;
-                                }
-                            }
-                            if ((scmp(entity->d_name, record.name) == 0)
-                                //&& (buf.id == record.id)
-                                && (buf.parent_id == record.parent_id)
-                                && (hash_match == true)) {
-                                entity = readdir(dir);
-                            } else {
-                                entity = readdir(dir);
-                                printf("File %s was changed\n",
-               record.name);
-                            }
-                        }
-                        //}
-                    }*/
         }
     } else
         return -7;
@@ -432,7 +299,10 @@ int main(int argc, char* argv[])
     DIR* dir;
     FILE* f;
     FILE* input;
+    FILE* output;
     Record buf;
+
+    output = fopen("report.txt", "w");
 
     FILE* data;
     if ((data = fopen("database.bin", "r+b")) == NULL) {
@@ -485,8 +355,13 @@ int main(int argc, char* argv[])
     }
     if ((scmp(argv[1], "-c") == 0) && (scmp(argv[2], "-f") == 0)
         && (scmp(argv[3], "database") == 0)) {
-        check_integrity(argv[4], 0, data, dir, f, input, buf);
+        check_integrity(argv[4], 0, data, f, input, buf, output);
         return 0;
     }
+    fclose(input);
+    fclose(output);
+    closedir(dir);
+    fclose(f);
+    fclose(data);
     return 0;
 }
