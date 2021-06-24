@@ -1,22 +1,4 @@
-#include "md5.h"
-#include "strings.h"
-#include <dirent.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#define PTR_SIZE 256
-#define MAX_PATH 260
-#define NAME_SIZE 255
-#define TYPE_SIZE 5
-
-struct file_record {
-    unsigned int id;
-    char name[NAME_SIZE];
-    unsigned int parent_id;
-    char type[TYPE_SIZE];
-    unsigned char hash[16];
-};
-typedef struct file_record Record;
+#include "functions.h"
 
 int save_info(
         char* path,
@@ -26,63 +8,24 @@ int save_info(
         FILE* data,
         DIR* dir)
 {
-    struct md5_ctx md5ctx;
-    // unsigned char md5_result[16];
-    // md5_result[0] = '\0';
-    // for (int i = 0; i < 16; i++) {
-    //    md5_result[i] = '0';
-    //}
-    unsigned size;
-
+    FILE* input;
     Record record;
+    bool direct = true;
+    char* ptr[PTR_SIZE];
+    int nesting_cnt;
+
     for (int i = 0; i < NAME_SIZE; i++) {
         record.name[i] = '\0';
     }
-    // record.hash[0] = '\0';
-    bool file = true, direct = true;
-    char* ptr[PTR_SIZE];
-    int nesting_cnt;
-    FILE* input;
-    if (slen(path) > MAX_PATH) {
-        return -1;
-    }
-    input = fopen(path, "r+");
-    if (input == NULL) {
-        file = false;
-    }
-    input = fopen(path, "r");
-    if (input == NULL) {
-        direct = false;
-    }
-    if ((file == false) && (direct == false)) {
-        printf("This file or directory doesn't exist\n");
-        return -4;
-    } else if (file == true) {
-        scopy("file", record.type);
-        printf("IT'S A FILE!\n");
-    } else {
-        if (*(path + slen(path) - 1) == '/')
-            *(path + slen(path) - 1) = '\0';
-        scopy("dir", record.type);
-        printf("IT'S A DIRECTORY!\n");
-    }
-    fclose(input);
 
-    //Запись в файл
-    //*FILE* data;
+    check_dir(path, input, &record, &direct);
 
-    //Проверка
-
-    // fwrite(&record, 1, sizeof(record), data);
     nesting_cnt = stok(path, '/', ptr);
-    char dir_name[NAME_SIZE];
-    scopy(ptr[nesting_cnt - 1] + 1, dir_name);
     scopy(ptr[nesting_cnt - 1] + 1, record.name);
     suntok(path, '/', ptr, nesting_cnt);
 
     //Проверка, что данная директория уже добавлена
     fseek(data, 0, SEEK_END);
-    // record.id = *id;
     unsigned int pos = ftell(data);
     if (pos > 0) {
         fseek(data, 0, SEEK_SET);
@@ -104,15 +47,11 @@ int save_info(
     //Запись данной директории
     record.id = *id;
     record.parent_id = parent_id;
-    // for (int i = 0; i < 16; i++) {
-    //    record.hash[i] = '0';
-    //}
     fseek(data, 0, SEEK_END);
     fwrite(&record, 1, sizeof(record), data);
-    // fclose(input);
 
     if (direct == true) {
-        /*DIR*/ dir = opendir(path);
+        dir = opendir(path);
         if (dir == NULL) {
             return -5;
         }
@@ -121,15 +60,11 @@ int save_info(
         int path_len;
 
         while (entity != NULL) {
-            // unsigned int id = 1;
-
             if ((entity->d_type == DT_DIR) && (scmp(entity->d_name, ".") != 0)
                 && (scmp(entity->d_name, "..") != 0) && (is_nested == true)) {
-                // scat(path, dirname);
                 path_len = slen(path);
                 scat(path, "/");
                 scat(path, entity->d_name);
-                // fclose(input);
                 *id = *id + 1;
                 save_info(path, is_nested, id, parent_id + 1, data, dir);
                 *(path + path_len) = '\0';
@@ -139,7 +74,6 @@ int save_info(
                 record.id++;
                 record.parent_id = parent_id + 1;
                 scopy(entity->d_name, record.name);
-
                 scopy("file", record.type);
 
                 // MD5
@@ -148,16 +82,7 @@ int save_info(
                 scat(path, record.name);
                 input = fopen(path, "rb");
                 if (input != NULL) {
-                    md5_init(&md5ctx);
-                    fseek(input, 0, SEEK_END);
-                    size = ftell(input);
-                    fseek(input, 0, SEEK_SET);
-                    unsigned char* msg = malloc(sizeof(unsigned char) * size);
-                    fread(msg, size, 1, input);
-                    md5_update(&md5ctx, msg, size);
-                    md5_final(&md5ctx, record.hash);
-
-                    // fclose(input);
+                    get_hash(input, &record);
 
                     *(path + path_len) = '\0';
 
@@ -182,7 +107,6 @@ int check_integrity(
         Record buf,
         FILE* output)
 {
-    struct md5_ctx md5ctx;
     int path_len;
     Record record;
     record.id = 1;
@@ -202,8 +126,6 @@ int check_integrity(
     closedir(dir);
 
     int nesting_cnt = stok(path, '/', ptr);
-    char dir_name[NAME_SIZE];
-    scopy((ptr[nesting_cnt - 1] + 1), dir_name);
     scopy((ptr[nesting_cnt - 1] + 1), record.name);
     suntok(path, '/', ptr, nesting_cnt);
 
@@ -216,7 +138,6 @@ int check_integrity(
     unsigned int pos = ftell(data);
     if (pos > 0) {
         fseek(data, 0, SEEK_SET);
-
         f = fopen("database.bin", "r+b");
         while (!feof(f)) {
             if (fread(&buf, 1, sizeof(buf), f) > 0) {
@@ -258,16 +179,7 @@ int check_integrity(
                     file_counter++;
                     *(path + path_len) = '\0';
                 } else {
-                    md5_init(&md5ctx);
-                    fseek(input, 0, SEEK_END);
-                    int size = ftell(input);
-                    fseek(input, 0, SEEK_SET);
-                    unsigned char* msg = malloc(sizeof(unsigned char) * size);
-                    fread(msg, size, 1, input);
-                    md5_update(&md5ctx, msg, size);
-                    md5_final(&md5ctx, record.hash);
-
-                    fclose(input);
+                    get_hash(input, &record);
 
                     *(path + path_len) = '\0';
 
@@ -312,7 +224,6 @@ int main(int argc, char* argv[])
     char* database = NULL;
     bool is_nested = false;
     unsigned int id = 1;
-    // printf("%d\n", argc);
     if ((argc < 5) && (argc > 6)) {
         printf("Usage:\n");
         printf("./integrctrl -s -f database <path to file or directory>\n");
@@ -349,9 +260,7 @@ int main(int argc, char* argv[])
 
     if ((scmp(argv[1], "-s") == 0) && (scmp(argv[2], "-f") == 0)
         && (scmp(argv[3], "database") == 0)) {
-        // printf("Came\n");
         save_info(argv[4], database, &id, 0, data, dir);
-        // return 0;
     }
     if ((scmp(argv[1], "-c") == 0) && (scmp(argv[2], "-f") == 0)
         && (scmp(argv[3], "database") == 0)) {
